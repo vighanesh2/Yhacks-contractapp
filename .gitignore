@@ -22,6 +22,9 @@
 
 # misc
 .DS_Store
+
+# editor / agent (local only)
+.cursor/
 *.pem
 
 # debug
