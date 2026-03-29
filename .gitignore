@@ -22,6 +22,9 @@
 
 # misc
 .DS_Store
+
+# editor / agent (local only)
+.cursor/
 *.pem
 
 # debug
@@ -30,8 +33,9 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files (can opt-in for committing if needed)
+# env files — never commit secrets (.env* matches .env, .env.local, etc.)
 .env*
+!.env.example
 
 # vercel
 .vercel
