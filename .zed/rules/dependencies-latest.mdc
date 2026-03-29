@@ -1,0 +1,27 @@
+---
+description: Use latest stable package versions; verify with web search; ask the user when blocked
+alwaysApply: true
+---
+
+# Dependencies: latest stable + clear asks
+
+## Versions
+
+- Prefer **latest stable** releases of libraries and tooling when adding or upgrading dependencies. Avoid defaulting to outdated majors or copy-pasted version pins unless the project already locks them for a documented reason.
+- Before picking a version for a **new** package or a meaningful upgrade, **check current stable** (e.g. npm registry, package README, release notes) via web search when not already obvious from `package.json` / lockfile.
+
+## Stability
+
+- **Latest** does not mean arbitrary prereleases: use **stable** (generally non–`@next`/`-beta` unless the stack explicitly requires it and the team agrees).
+- If two packages must align (e.g. peer deps), resolve compatibility first, then choose the newest combination that works.
+
+## When something must come from the user
+
+Say so explicitly and list what you need, for example:
+
+- Secrets and env vars (API keys, Supabase URL/key, OAuth client IDs), or confirmation of which environment (local vs deployed).
+- Accounts, billing, or dashboard access the assistant cannot create.
+- Product or legal choices (data retention, PII handling, vendor selection).
+- Assets or credentials only they hold (certs, signing keys, org-specific API access).
+
+Do not guess secrets or fabricate credentials; ask and wait when blocked.
