@@ -18,6 +18,9 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "DealWithIt",
   description: "Contract intelligence: upload, analyze, and ask questions.",
+  icons: {
+    icon: "/logo.png",
+  },
 };
 
 export default function RootLayout({
