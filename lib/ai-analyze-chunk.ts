@@ -1,92 +1,110 @@
-import {
-  normalizeChunkAnalysisFields,
-  type ChunkAnalysis,
-} from "./analysis-types";
+import { lavaOpenAI, OPENAI_V1_BASE } from "./lava-openai";
 
-const ANTHROPIC_URL = "https://api.anthropic.com/v1/messages";
+const OPENAI_CHAT_URL = `${OPENAI_V1_BASE}/chat/completions`;
 
-const ANALYZE_MODEL =
-  process.env.ANTHROPIC_ANALYZE_MODEL ?? "claude-3-5-haiku-20241022";
+/** Same provider family as embeddings; chat completions produce the structured analysis (not vectors). */
+const ANALYSIS_MODEL = "gpt-4o-mini";
 
-const SCHEMA_HINT = `Return ONLY a single JSON object (no markdown) with these keys:
-clause_type: one of general, auto_renewal, price_escalation, sla_penalty, ip_ownership, non_compete, rate_lock, scope_definition, late_payment, early_payment
-category: one of risk, leverage, neutral
-severity: one of none, low, medium, high, critical
-dollar_impact: number or null (estimated USD exposure if applicable)
-impact_explanation: string or null
-trigger_date: ISO date string or null
-action_deadline: ISO date string or null
-is_recurring: boolean
-title: short string or null
-analysis: 1-3 sentences
-recommended_action: string or null`;
+const CHUNK_ANALYSIS_PROMPT = `You are a contract analyst. Analyze this single contract clause/section and classify it.
 
-function parseAnthropicJson(text: string): Record<string, unknown> {
-  const cleaned = text
-    .replace(/^```(?:json)?\s*/i, "")
-    .replace(/\s*```$/i, "")
-    .trim();
-  return JSON.parse(cleaned) as Record<string, unknown>;
+Return ONLY valid JSON (no markdown, no backticks):
+{
+  "clause_type": "auto_renewal | price_escalation | penalty | minimum_commitment | exclusivity | termination_fee | cancellation_window | renegotiation | liability_cap | late_payment | early_payment | sla_penalty | rate_lock | audit_rights | ip_ownership | non_compete | indemnification | payment_terms | scope_definition | confidentiality | dispute_resolution | force_majeure | warranty | governing_law | general",
+  "category": "risk | leverage | neutral",
+  "severity": "critical | high | medium | low | none",
+  "title": "Short headline summarizing the financial impact, e.g. 'Auto-renewal at 8% higher rate in 22 days'",
+  "analysis": "2-3 sentence explanation of what this means for the business and why it matters financially",
+  "dollar_impact": null or number (estimated annual financial impact in USD),
+  "impact_explanation": "Show your math if dollar_impact is set",
+  "trigger_date": "YYYY-MM-DD or null (when does this clause activate?)",
+  "action_deadline": "YYYY-MM-DD or null (last date to take action)",
+  "is_recurring": false,
+  "recommended_action": "Specific actionable step the business should take. Be concrete, not generic."
 }
+
+If the section is just boilerplate with no financial implications (e.g. governing law, definitions), set category to "neutral", severity to "none", and dollar_impact to null. Still provide a brief analysis.
+
+IMPORTANT: Calculate real dollar impacts wherever possible. If the section mentions specific amounts, percentages, or timeframes, do the math.`;
+
+export type ChunkAnalysis = {
+  clause_type: string;
+  category: string;
+  severity: string;
+  title: string;
+  analysis: string;
+  dollar_impact: number | null;
+  impact_explanation?: string | null;
+  trigger_date: string | null;
+  action_deadline: string | null;
+  is_recurring: boolean;
+  recommended_action: string;
+};
+
+const FALLBACK_ANALYSIS: ChunkAnalysis = {
+  clause_type: "general",
+  category: "neutral",
+  severity: "none",
+  title: "Unable to analyze",
+  analysis: "This section could not be automatically analyzed.",
+  dollar_impact: null,
+  trigger_date: null,
+  action_deadline: null,
+  is_recurring: false,
+  recommended_action: "Review manually.",
+};
+
+type ChatCompletionResponse = {
+  choices?: Array<{ message?: { content?: string | null } }>;
+  error?: { message?: string };
+};
 
 export async function analyzeChunk(
   chunkText: string,
-  contractContext: string
+  contractContext: string,
 ): Promise<ChunkAnalysis> {
-  const key = process.env.ANTHROPIC_API_KEY;
-  if (!key) {
-    throw new Error("Missing ANTHROPIC_API_KEY for chunk analysis.");
+  const userContent = `Contract context: ${contractContext}\n\nAnalyze this specific section:\n\n${chunkText}\n\n${CHUNK_ANALYSIS_PROMPT}`;
+
+  let data: ChatCompletionResponse;
+  try {
+    data = (await lavaOpenAI.gateway(OPENAI_CHAT_URL, {
+      body: {
+        model: ANALYSIS_MODEL,
+        max_tokens: 1024,
+        response_format: { type: "json_object" },
+        messages: [
+          {
+            role: "system",
+            content:
+              "You are a precise contract analyst. Reply with a single JSON object only, matching the user's schema. No markdown.",
+          },
+          { role: "user", content: userContent },
+        ],
+      },
+    })) as ChatCompletionResponse;
+  } catch (err) {
+    return {
+      ...FALLBACK_ANALYSIS,
+      analysis:
+        err instanceof Error ? err.message : "Lava gateway request failed.",
+    };
   }
 
-  const userContent = `${contractContext}
-
-Chunk text:
-"""
-${chunkText.slice(0, 24_000)}
-"""
-
-${SCHEMA_HINT}`;
-
-  const res = await fetch(ANTHROPIC_URL, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-api-key": key,
-      "anthropic-version": "2023-06-01",
-    },
-    body: JSON.stringify({
-      model: ANALYZE_MODEL,
-      max_tokens: 1024,
-      messages: [{ role: "user", content: userContent }],
-    }),
-  });
-
-  if (!res.ok) {
-    const err = await res.text();
-    throw new Error(`Anthropic analyzeChunk failed: ${res.status} ${err}`);
+  if (data.error?.message) {
+    return {
+      ...FALLBACK_ANALYSIS,
+      analysis: data.error.message,
+    };
   }
 
-  const data = (await res.json()) as {
-    content?: Array<{ type: string; text?: string }>;
-  };
-  const text = data.content?.[0]?.text ?? "{}";
+  const text = data.choices?.[0]?.message?.content ?? "{}";
+  const cleaned = text
+    .replace(/```json\s*/g, "")
+    .replace(/```\s*/g, "")
+    .trim();
 
   try {
-    const raw = parseAnthropicJson(text);
-    return normalizeChunkAnalysisFields(raw);
+    return JSON.parse(cleaned) as ChunkAnalysis;
   } catch {
-    return {
-      clause_type: "general",
-      category: "neutral",
-      severity: "none",
-      dollar_impact: null,
-      impact_explanation: null,
-      trigger_date: null,
-      action_deadline: null,
-      is_recurring: false,
-      title: null,
-      analysis: text.slice(0, 500),
-      recommended_action: null,
-    };
+    return FALLBACK_ANALYSIS;
   }
 }

@@ -1,15 +1,13 @@
-import { Lava } from "@lavapayments/nodejs";
+import { lavaOpenAI, OPENAI_V1_BASE } from "./lava-openai";
 
-const lava = new Lava();
-
-const OPENAI_EMBEDDINGS_URL = "https://api.openai.com/v1/embeddings";
+const OPENAI_EMBEDDINGS_URL = `${OPENAI_V1_BASE}/embeddings`;
 
 type EmbeddingsCreateResponse = {
   data: Array<{ embedding: number[]; index?: number }>;
 };
 
 export async function embedText(text: string): Promise<number[]> {
-  const data = (await lava.gateway(OPENAI_EMBEDDINGS_URL, {
+  const data = (await lavaOpenAI.gateway(OPENAI_EMBEDDINGS_URL, {
     body: {
       model: "text-embedding-3-small",
       input: text,
@@ -20,11 +18,8 @@ export async function embedText(text: string): Promise<number[]> {
 }
 
 export async function embedBatch(texts: string[]): Promise<number[][]> {
-  if (texts.length === 0) {
-    return [];
-  }
-
-  const data = (await lava.gateway(OPENAI_EMBEDDINGS_URL, {
+  // OpenAI supports batching up to 2048 inputs
+  const data = (await lavaOpenAI.gateway(OPENAI_EMBEDDINGS_URL, {
     body: {
       model: "text-embedding-3-small",
       input: texts,
