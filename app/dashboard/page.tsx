@@ -213,16 +213,6 @@ export default function DashboardPage() {
           valueClass="text-emerald-700"
           subClass="text-emerald-500"
         />
-
-        <StatCard
-          label="Total Saved"
-          value={`$${animSaved.toLocaleString()}`}
-          sub="From logged actions"
-          icon="✅"
-          className="border-gray-200 bg-white"
-          valueClass="text-emerald-600"
-          subClass="text-gray-400"
-        />
       </div>
 
       {/* ── Today's Actions ───────────────────────────────────────────────── */}
