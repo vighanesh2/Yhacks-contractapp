@@ -16,7 +16,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "ContractGuard",
+  title: "DealWithIt",
   description: "Contract intelligence: upload, analyze, and ask questions.",
 };
 

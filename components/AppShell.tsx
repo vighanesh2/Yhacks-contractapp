@@ -21,7 +21,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             href="/"
             className="text-sm font-semibold tracking-tight text-gray-950"
           >
-            ContractGuard
+            DealWithIt
           </Link>
           <nav className="flex flex-wrap items-center gap-1 sm:gap-2">
             {NAV.map(({ href, label }) => {

@@ -1,4 +1,4 @@
-# ContractGuard — implementation overview
+# DealWithIt — implementation overview
 
 This document summarizes what the [Yhacks Contract App](https://github.com/vighanesh2/Yhacks-contractapp) implements today so the team can track scope and onboard quickly. It reflects the **main** app layout (Next.js App Router, no `src/` folder).
 

@@ -45,7 +45,7 @@ export default function LandingPage() {
               style={{ animationDelay: "160ms" }}
             >
               Upload any sales, vendor, or distribution agreement. In seconds,
-              ContractGuard surfaces your exact dollar exposure, hidden renewal
+              DealWithIt surfaces your exact dollar exposure, hidden renewal
               traps, and the one action you need to protect your money — no
               lawyer required.
             </p>
@@ -144,7 +144,7 @@ export default function LandingPage() {
             What we surface automatically
           </h2>
           <p className="mx-auto mb-12 max-w-2xl text-center text-sm text-gray-500">
-            On every Sales or Distribution Agreement upload, ContractGuard
+            On every Sales or Distribution Agreement upload, DealWithIt
             automatically extracts these 8 financial insights — each backed by
             real clause text, concrete dollar math, and a specific recommended
             action.
@@ -246,7 +246,7 @@ export default function LandingPage() {
             </h2>
             <p className="mt-3 max-w-md text-gray-600">
               A single $50K vendor contract can quietly leak $4K–$9K a year
-              through missed notice periods and unbalanced terms. ContractGuard
+              through missed notice periods and unbalanced terms. DealWithIt
               finds the exact dollar number and the one-sentence action to fix
               it — in under a minute.
             </p>
