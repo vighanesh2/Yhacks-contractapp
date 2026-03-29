@@ -1,90 +1,130 @@
-/** Per-chunk output from `analyzeChunk` — used by synthesis and Supabase rows. */
 export type ClauseType =
-  | "general"
   | "auto_renewal"
   | "price_escalation"
+  | "penalty"
+  | "minimum_commitment"
+  | "exclusivity"
+  | "termination_fee"
+  | "cancellation_window"
+  | "renegotiation"
+  | "liability_cap"
+  | "late_payment"
+  | "early_payment"
   | "sla_penalty"
+  | "rate_lock"
+  | "audit_rights"
   | "ip_ownership"
   | "non_compete"
-  | "rate_lock"
+  | "indemnification"
+  | "payment_terms"
   | "scope_definition"
-  | "late_payment"
-  | "early_payment";
+  | "confidentiality"
+  | "dispute_resolution"
+  | "force_majeure"
+  | "warranty"
+  | "governing_law"
+  | "general";
 
 export type AnalysisCategory = "risk" | "leverage" | "neutral";
+export type AnalysisSeverity = "critical" | "high" | "medium" | "low" | "none";
 
-export type Severity = "none" | "low" | "medium" | "high" | "critical";
-
-export interface ChunkAnalysis {
+export type ChunkAnalysis = {
   clause_type: ClauseType;
   category: AnalysisCategory;
-  severity: Severity;
+  severity: AnalysisSeverity;
+  title: string | null;
+  analysis: string;
   dollar_impact: number | null;
   impact_explanation: string | null;
   trigger_date: string | null;
   action_deadline: string | null;
   is_recurring: boolean;
-  title: string | null;
-  analysis: string;
   recommended_action: string | null;
-}
+};
 
-const CLAUSE_LIST: ClauseType[] = [
-  "general",
+const CLAUSE_TYPES = new Set<string>([
   "auto_renewal",
   "price_escalation",
-  "sla_penalty",
-  "ip_ownership",
-  "non_compete",
-  "rate_lock",
-  "scope_definition",
+  "penalty",
+  "minimum_commitment",
+  "exclusivity",
+  "termination_fee",
+  "cancellation_window",
+  "renegotiation",
+  "liability_cap",
   "late_payment",
   "early_payment",
-];
+  "sla_penalty",
+  "rate_lock",
+  "audit_rights",
+  "ip_ownership",
+  "non_compete",
+  "indemnification",
+  "payment_terms",
+  "scope_definition",
+  "confidentiality",
+  "dispute_resolution",
+  "force_majeure",
+  "warranty",
+  "governing_law",
+  "general",
+]);
 
-const CAT_LIST: AnalysisCategory[] = ["risk", "leverage", "neutral"];
-const SEV_LIST: Severity[] = ["none", "low", "medium", "high", "critical"];
+const CATEGORIES = new Set<AnalysisCategory>(["risk", "leverage", "neutral"]);
+const SEVERITIES = new Set<AnalysisSeverity>([
+  "critical",
+  "high",
+  "medium",
+  "low",
+  "none",
+]);
+
+function str(v: unknown): string | null {
+  if (v == null) return null;
+  const s = String(v).trim();
+  return s.length ? s : null;
+}
+
+function num(v: unknown): number | null {
+  if (v == null || v === "") return null;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
+}
+
+function bool(v: unknown): boolean {
+  return v === true;
+}
 
 export function normalizeChunkAnalysisFields(
-  raw: Record<string, unknown>
+  raw: Record<string, unknown>,
 ): ChunkAnalysis {
-  const ct = String(raw.clause_type ?? "general");
-  const clause_type = CLAUSE_LIST.includes(ct as ClauseType)
-    ? (ct as ClauseType)
-    : "general";
+  const clauseRaw = str(raw.clause_type);
+  const clause_type: ClauseType =
+    clauseRaw && CLAUSE_TYPES.has(clauseRaw)
+      ? (clauseRaw as ClauseType)
+      : "general";
 
-  const cg = String(raw.category ?? "neutral");
-  const category = CAT_LIST.includes(cg as AnalysisCategory)
-    ? (cg as AnalysisCategory)
+  const catRaw = str(raw.category);
+  const category: AnalysisCategory = CATEGORIES.has(catRaw as AnalysisCategory)
+    ? (catRaw as AnalysisCategory)
     : "neutral";
 
-  const sv = String(raw.severity ?? "none");
-  const severity = SEV_LIST.includes(sv as Severity)
-    ? (sv as Severity)
+  const sevRaw = str(raw.severity);
+  const severity: AnalysisSeverity = SEVERITIES.has(sevRaw as AnalysisSeverity)
+    ? (sevRaw as AnalysisSeverity)
     : "none";
 
   return {
     clause_type,
     category,
     severity,
-    dollar_impact:
-      raw.dollar_impact === null || raw.dollar_impact === undefined
-        ? null
-        : Number(raw.dollar_impact),
-    impact_explanation:
-      raw.impact_explanation == null
-        ? null
-        : String(raw.impact_explanation),
-    trigger_date:
-      raw.trigger_date == null ? null : String(raw.trigger_date),
-    action_deadline:
-      raw.action_deadline == null ? null : String(raw.action_deadline),
-    is_recurring: Boolean(raw.is_recurring),
-    title: raw.title == null ? null : String(raw.title),
-    analysis: String(raw.analysis ?? ""),
-    recommended_action:
-      raw.recommended_action == null
-        ? null
-        : String(raw.recommended_action),
+    title: str(raw.title),
+    analysis: str(raw.analysis) ?? "",
+    dollar_impact: num(raw.dollar_impact),
+    impact_explanation: str(raw.impact_explanation),
+    trigger_date: str(raw.trigger_date),
+    action_deadline: str(raw.action_deadline),
+    is_recurring: bool(raw.is_recurring),
+    recommended_action: str(raw.recommended_action),
   };
 }

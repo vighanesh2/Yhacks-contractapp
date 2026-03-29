@@ -7,13 +7,21 @@ import { chunkContract } from "@/lib/chunker";
 import { embedBatch } from "@/lib/embeddings";
 import { extractText } from "@/lib/pdf-parser";
 import { redactPII } from "@/lib/redact";
-import { requireSupabase } from "@/lib/supabase";
+import { supabaseAdmin } from "@/lib/supabase";
 
 export const runtime = "nodejs";
-export const maxDuration = 60;
+export const maxDuration = 60; // Allow up to 60s for Vercel
 
 export async function POST(req: NextRequest) {
-  const supabaseAdmin = requireSupabase();
+  if (!supabaseAdmin) {
+    return NextResponse.json(
+      {
+        error:
+          "Supabase is not configured. Set NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.",
+      },
+      { status: 503 },
+    );
+  }
 
   try {
     const formData = await req.formData();
@@ -22,35 +30,45 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "No file" }, { status: 400 });
     }
 
+    // 1. Extract text
     const buffer = Buffer.from(await file.arrayBuffer());
     const rawText = await extractText(buffer, file.name);
     if (!rawText || rawText.trim().length < 50) {
-      return NextResponse.json({ error: "Could not extract text" }, { status: 400 });
+      return NextResponse.json(
+        { error: "Could not extract text" },
+        { status: 400 },
+      );
     }
 
+    // 2. Smart chunking
     const chunks = chunkContract(rawText);
 
+    // 3. Redact PII from each chunk
     const redactedChunks = chunks.map((c) => ({
       ...c,
       text: redactPII(c.text),
     }));
 
+    // 4. Generate embeddings for all chunks (batched)
     const chunkTexts = redactedChunks.map((c) => c.text);
     const embeddings = await embedBatch(chunkTexts);
 
+    // 5. Analyze each chunk with AI (parallel, batches of 5)
     const contractContext = `File: ${file.name}. Total sections: ${chunks.length}.`;
     const analysisResults: ChunkAnalysis[] = [];
 
     for (let i = 0; i < redactedChunks.length; i += 5) {
       const batch = redactedChunks.slice(i, i + 5);
       const batchResults = await Promise.all(
-        batch.map((chunk) => analyzeChunk(chunk.text, contractContext))
+        batch.map((chunk) => analyzeChunk(chunk.text, contractContext)),
       );
       analysisResults.push(...batchResults);
     }
 
+    // 6. Synthesize contract-level summary
     const synthesis = await synthesizeContract(analysisResults, file.name);
 
+    // 7. Insert contract record
     const { data: contract, error: cErr } = await supabaseAdmin
       .from("contracts")
       .insert({
@@ -69,6 +87,7 @@ export async function POST(req: NextRequest) {
 
     if (cErr) throw cErr;
 
+    // 8. Insert all chunks with embeddings and analysis
     const chunkRows = redactedChunks.map((chunk, i) => ({
       contract_id: contract.id,
       chunk_text: chunk.text,
@@ -76,7 +95,7 @@ export async function POST(req: NextRequest) {
       section_number: chunk.sectionNumber,
       section_title: chunk.sectionTitle,
       page_number: chunk.pageEstimate,
-      embedding: embeddings[i],
+      embedding: JSON.stringify(embeddings[i]), // pgvector accepts JSON array
       clause_type: analysisResults[i]?.clause_type || "general",
       category: analysisResults[i]?.category || "neutral",
       severity: analysisResults[i]?.severity || "none",
@@ -90,6 +109,7 @@ export async function POST(req: NextRequest) {
       recommended_action: analysisResults[i]?.recommended_action ?? null,
     }));
 
+    // Insert in batches to avoid payload size limits
     for (let i = 0; i < chunkRows.length; i += 10) {
       const batch = chunkRows.slice(i, i + 10);
       const { error: chunkErr } = await supabaseAdmin
@@ -98,6 +118,7 @@ export async function POST(req: NextRequest) {
       if (chunkErr) console.error("Chunk insert error:", chunkErr);
     }
 
+    // 9. Set next critical date
     const deadlines = analysisResults
       .filter((a) => a.action_deadline)
       .map((a) => a.action_deadline as string)
@@ -116,10 +137,22 @@ export async function POST(req: NextRequest) {
         .eq("id", contract.id);
     }
 
+    const { data: savedChunks } = await supabaseAdmin
+      .from("contract_chunks")
+      .select("id, chunk_index")
+      .eq("contract_id", contract.id)
+      .order("chunk_index", { ascending: true });
+
+    const idByChunkIndex = new Map(
+      (savedChunks ?? []).map((row) => [row.chunk_index as number, row.id as string]),
+    );
+
+    // 10. Return full result
     return NextResponse.json({
       success: true,
       contract: { ...contract, ...synthesis },
       chunks: redactedChunks.map((chunk, i) => ({
+        id: idByChunkIndex.get(chunk.index) ?? null,
         section_number: chunk.sectionNumber,
         section_title: chunk.sectionTitle,
         ...analysisResults[i],

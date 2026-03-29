@@ -1,4 +1,9 @@
 import type { ChunkAnalysis } from "./analysis-types";
+import { lavaOpenAI, OPENAI_V1_BASE } from "./lava-openai";
+
+const OPENAI_CHAT_URL = `${OPENAI_V1_BASE}/chat/completions`;
+/** Same stack as `ai-analyze-chunk` — Lava gateway + OpenAI. */
+const SYNTHESIS_MODEL = "gpt-4o-mini";
 
 export async function synthesizeContract(
   chunks: ChunkAnalysis[],
@@ -60,43 +65,52 @@ export async function synthesizeContract(
 
   const clauseSummaries = chunks
     .filter((c) => c.severity !== "none")
-    .map((c) => `- ${c.title}: ${c.analysis}`)
+    .map((c) => `- ${c.title ?? "Section"}: ${c.analysis}`)
     .join("\n");
 
-  const key = process.env.ANTHROPIC_API_KEY;
-  if (!key) {
-    throw new Error("Missing ANTHROPIC_API_KEY for contract synthesis.");
-  }
-
-  const summaryResponse = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-api-key": key,
-      "anthropic-version": "2023-06-01",
-    },
-    body: JSON.stringify({
-      model: "claude-sonnet-4-20250514",
-      max_tokens: 256,
-      messages: [
-        {
-          role: "user",
-          content: `Summarize this contract in 2-3 plain English sentences. Focus on what the contract is for, the key financial terms, and the biggest risk or opportunity.\n\nContract: ${contractName}\nKey findings:\n${clauseSummaries}\n\nReturn ONLY the summary text, nothing else.`,
-        },
-      ],
-    }),
-  });
-
-  if (!summaryResponse.ok) {
-    const err = await summaryResponse.text();
-    throw new Error(`Anthropic synthesizeContract failed: ${summaryResponse.status} ${err}`);
-  }
-
-  const summaryData = (await summaryResponse.json()) as {
-    content?: Array<{ text?: string }>;
+  type ChatCompletionResponse = {
+    choices?: Array<{ message?: { content?: string | null } }>;
+    error?: { message?: string };
   };
+
+  let summaryData: ChatCompletionResponse;
+  try {
+    summaryData = (await lavaOpenAI.gateway(OPENAI_CHAT_URL, {
+      body: {
+        model: SYNTHESIS_MODEL,
+        max_tokens: 256,
+        messages: [
+          {
+            role: "system",
+            content:
+              "You write concise contract summaries. Reply with plain prose only — no markdown, no JSON.",
+          },
+          {
+            role: "user",
+            content: `Summarize this contract in 2-3 plain English sentences. Focus on what the contract is for, the key financial terms, and the biggest risk or opportunity.
+
+Contract: ${contractName}
+Key findings:
+${clauseSummaries || "(No non-neutral severity clauses — summarize from overall context if needed.)"}
+
+Return ONLY the summary text, nothing else.`,
+          },
+        ],
+      },
+    })) as ChatCompletionResponse;
+  } catch (err) {
+    const msg =
+      err instanceof Error ? err.message : "Lava gateway request failed.";
+    throw new Error(`synthesizeContract: ${msg}`);
+  }
+
+  if (summaryData.error?.message) {
+    throw new Error(`synthesizeContract: ${summaryData.error.message}`);
+  }
+
   const summary =
-    summaryData.content?.[0]?.text || "Contract analyzed successfully.";
+    summaryData.choices?.[0]?.message?.content?.trim() ||
+    "Contract analyzed successfully.";
 
   return {
     contract_type: contractType,

@@ -16,21 +16,18 @@ export function chunkContract(fullText: string): ContractChunk[] {
     /(?:^|\n)(?:\s*)((?:Section|SECTION|Article|ARTICLE|Clause|CLAUSE)\s+[\d\w.()]+[.:;\s-]*.*?$|(?:^\d+\.[\d.]*\s+[A-Z].*?$)|(?:^[A-Z][A-Z\s]{4,}$))/gm;
 
   const matches: { index: number; header: string }[] = [];
-  let match;
+  let match: RegExpExecArray | null;
 
   while ((match = sectionPattern.exec(fullText)) !== null) {
-    matches.push({ index: match.index, header: match[1].trim() });
+    const header = match[1]?.trim();
+    if (header) {
+      matches.push({ index: match.index, header });
+    }
   }
 
   if (matches.length === 0) {
     // No sections detected — fall back to paragraph-based chunking
-    return chunkByParagraphs(fullText).map((text, index) => ({
-      text,
-      index,
-      sectionNumber: null,
-      sectionTitle: null,
-      pageEstimate: Math.floor((index * 1500) / 3000) + 1,
-    }));
+    return chunkByParagraphsToContractChunks(fullText);
   }
 
   // Split text at each section boundary
@@ -79,7 +76,9 @@ export function chunkContract(fullText: string): ContractChunk[] {
         pageEstimate: 1,
       });
       // Re-index
-      chunks.forEach((c, i) => (c.index = i));
+      chunks.forEach((c, idx) => {
+        c.index = idx;
+      });
     }
   }
 
@@ -92,14 +91,14 @@ function parseSectionHeader(header: string): {
 } {
   // Try to extract "Section 4.3 - Payment Terms" → { number: "4.3", title: "Payment Terms" }
   const numbered = header.match(
-    /^(?:Section|Article|Clause)\s+([\d\w.()]+)[.:;\s-]*(.*)/i
+    /^(?:Section|Article|Clause)\s+([\d\w.()]+)[.:;\s-]*(.*)/i,
   );
   if (numbered) {
-    return { number: numbered[1], title: numbered[2] || null };
+    return { number: numbered[1], title: numbered[2]?.trim() || null };
   }
 
   // Try "4.3.1 Payment Terms" → { number: "4.3.1", title: "Payment Terms" }
-  const numPrefix = header.match(/^([\d]+\.[\d.]*)\s+(.*)/);
+  const numPrefix = header.match(/^(\d+\.[\d.]*)\s+(.*)/);
   if (numPrefix) {
     return { number: numPrefix[1], title: numPrefix[2] };
   }
@@ -117,20 +116,35 @@ function parseSectionHeader(header: string): {
 
 function chunkByParagraphs(text: string, maxLen: number = 1500): string[] {
   const paragraphs = text.split(/\n\s*\n/);
-  const chunks: string[] = [];
+  const out: string[] = [];
   let current = "";
 
   for (const para of paragraphs) {
     if (current.length + para.length > maxLen && current.length > 100) {
-      chunks.push(current.trim());
+      out.push(current.trim());
       current = para;
     } else {
       current += "\n\n" + para;
     }
   }
   if (current.trim().length > 50) {
-    chunks.push(current.trim());
+    out.push(current.trim());
   }
 
-  return chunks;
+  return out;
+}
+
+/** When no section headers match, emit one `ContractChunk` per paragraph group (same as paragraph chunker). */
+function chunkByParagraphsToContractChunks(
+  fullText: string,
+  maxLen: number = 1500,
+): ContractChunk[] {
+  const parts = chunkByParagraphs(fullText.trim(), maxLen);
+  return parts.map((text, index) => ({
+    text,
+    index,
+    sectionNumber: null,
+    sectionTitle: null,
+    pageEstimate: Math.floor(index / 2) + 1,
+  }));
 }

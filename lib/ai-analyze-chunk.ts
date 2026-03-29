@@ -1,6 +1,10 @@
 import type { ChunkAnalysis } from "./analysis-types";
 import { normalizeChunkAnalysisFields } from "./analysis-types";
 import { lavaOpenAI, OPENAI_V1_BASE } from "./lava-openai";
+import type { ChunkAnalysis } from "./analysis-types";
+import { normalizeChunkAnalysisFields } from "./analysis-types";
+
+export type { ChunkAnalysis };
 
 export type { ChunkAnalysis };
 
@@ -30,24 +34,19 @@ If the section is just boilerplate with no financial implications (e.g. governin
 
 IMPORTANT: Calculate real dollar impacts wherever possible. If the section mentions specific amounts, percentages, or timeframes, do the math.`;
 
-const FALLBACK_FIELDS = {
-  clause_type: "general",
-  category: "neutral",
-  severity: "none",
-  title: "Unable to analyze",
-  analysis: "This section could not be automatically analyzed.",
-  dollar_impact: null,
-  impact_explanation: null,
-  trigger_date: null,
-  action_deadline: null,
-  is_recurring: false,
-  recommended_action: "Review manually.",
-} as const satisfies Record<string, unknown>;
-
-function fallbackAnalysis(message: string): ChunkAnalysis {
+function fallbackAnalysis(analysis: string): ChunkAnalysis {
   return normalizeChunkAnalysisFields({
-    ...FALLBACK_FIELDS,
-    analysis: message,
+    clause_type: "general",
+    category: "neutral",
+    severity: "none",
+    title: "Unable to analyze",
+    analysis,
+    dollar_impact: null,
+    impact_explanation: null,
+    trigger_date: null,
+    action_deadline: null,
+    is_recurring: false,
+    recommended_action: "Review manually.",
   });
 }
 
@@ -99,6 +98,8 @@ export async function analyzeChunk(
     const raw = JSON.parse(cleaned) as Record<string, unknown>;
     return normalizeChunkAnalysisFields(raw);
   } catch {
-    return fallbackAnalysis("This section could not be automatically analyzed.");
+    return fallbackAnalysis(
+      "This section could not be automatically analyzed.",
+    );
   }
 }
