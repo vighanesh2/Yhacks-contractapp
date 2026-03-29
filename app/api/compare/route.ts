@@ -103,7 +103,7 @@ export async function POST(req: NextRequest) {
 
   const { data: rows, error: rpcErr } = await supabaseAdmin.rpc("search_chunks", {
     query_embedding: JSON.stringify(embedding),
-    match_count: 20,
+    match_count: 50,
     filter_contract_id: null,
   });
 
@@ -116,36 +116,55 @@ export async function POST(req: NextRequest) {
 
   const list = (rows ?? []) as SearchRow[];
   const sourceId = String(source.id);
+  const sourceContractId =
+    source.contract_id != null ? String(source.contract_id) : null;
 
-  const filtered = list.filter((r) => String(r.id) !== sourceId).slice(0, 12);
+  const withoutSelf = list.filter((r) => String(r.id) !== sourceId);
 
-  const chunkIds = filtered
+  const lookupIds = withoutSelf
     .map((r) => r.id)
     .filter((id): id is string | number => id != null);
 
+  const contractIdByChunkId = new Map<string, string>();
   const metaByChunkId = new Map<
     string,
     { file_name: string | null; counterparty_name: string | null }
   >();
 
-  if (chunkIds.length > 0) {
+  if (lookupIds.length > 0) {
     const { data: metas, error: metaErr } = await supabaseAdmin
       .from("contract_chunks")
-      .select("id, contracts(file_name, counterparty_name)")
-      .in("id", chunkIds);
+      .select("id, contract_id, contracts(file_name, counterparty_name)")
+      .in("id", lookupIds);
 
     if (!metaErr && metas) {
       for (const row of metas) {
-        const id = row.id as string | number;
+        const id = String(row.id as string | number);
+        if (row.contract_id != null) {
+          contractIdByChunkId.set(id, String(row.contract_id));
+        }
         const rel = row.contracts as ContractEmbed | ContractEmbed[] | null;
         const c = Array.isArray(rel) ? rel[0] : rel;
-        metaByChunkId.set(String(id), {
+        metaByChunkId.set(id, {
           file_name: c?.file_name ?? null,
           counterparty_name: c?.counterparty_name ?? null,
         });
       }
     }
   }
+
+  function rowContractId(r: SearchRow): string | undefined {
+    if (r.contract_id != null) return String(r.contract_id);
+    if (r.id == null) return undefined;
+    return contractIdByChunkId.get(String(r.id));
+  }
+
+  const otherContracts =
+    sourceContractId == null
+      ? withoutSelf
+      : withoutSelf.filter((r) => rowContractId(r) !== sourceContractId);
+
+  const filtered = otherContracts.slice(0, 12);
 
   const similar = filtered.map((r) => {
     const idKey = r.id != null ? String(r.id) : "";
