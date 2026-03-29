@@ -43,7 +43,7 @@ function parseVector(raw: unknown): number[] | null {
 }
 
 /**
- * POST /api/compare — find semantically similar chunks (portfolio-wide).
+ * POST /api/compare — cross-contract similar chunks (other PDFs only).
  * Body: { chunk_id: string | number }
  */
 export async function POST(req: NextRequest) {
