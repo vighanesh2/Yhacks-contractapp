@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { ContractChat } from "@/components/ContractChat";
 
@@ -45,6 +45,7 @@ type SimilarClause = {
   section_title?: string | null;
   chunk_text?: string | null;
   clause_type?: string | null;
+  title?: string | null;
   similarity?: number | null;
   dollar_impact?: number | null;
   severity?: string | null;
@@ -109,10 +110,6 @@ export default function ContractDetailPage() {
   const [compareLoading, setCompareLoading] = useState(false);
   const [compareErr, setCompareErr] = useState<string | null>(null);
 
-  // Confetti / action feedback state
-  const [actionFlashId, setActionFlashId] = useState<string | null>(null);
-  const confettiTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
-
   // Switch to Ask tab if URL hash says so
   useEffect(() => {
     if (typeof window !== "undefined" && window.location.hash === "#ask") {
@@ -169,34 +166,6 @@ export default function ContractDetailPage() {
   const leverageTotal = contract?.leverage_total ?? 0;
   const animRisk = useCountUp(loading ? 0 : moneyAtRisk);
   const animLev = useCountUp(loading ? 0 : leverageTotal);
-
-  // ── Take Action handler ─────────────────────────────────────────────────────
-  const takeAction = useCallback(
-    async (chunkId: string) => {
-      if (!contract) return;
-
-      // Confetti flash
-      if (confettiTimeout.current) clearTimeout(confettiTimeout.current);
-      setActionFlashId(chunkId);
-      confettiTimeout.current = setTimeout(() => setActionFlashId(null), 2000);
-
-      try {
-        await fetch("/api/actions", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            chunk_id: chunkId,
-            contract_id: contract.id,
-            savings_amount: 0,
-            action_type: "take_action",
-          }),
-        });
-      } catch {
-        // Non-critical — confetti already shown
-      }
-    },
-    [contract],
-  );
 
   // ── Similar clauses handler ─────────────────────────────────────────────────
   const openSimilar = useCallback(
@@ -400,8 +369,6 @@ export default function ContractDetailPage() {
                     <ClauseCard
                       chunk={c}
                       index={i}
-                      isFlashing={actionFlashId === c.id}
-                      onTakeAction={() => void takeAction(c.id)}
                       onFindSimilar={() =>
                         void openSimilar(c.id, c.title ?? null)
                       }
@@ -435,8 +402,6 @@ export default function ContractDetailPage() {
                     <ClauseCard
                       chunk={c}
                       index={i}
-                      isFlashing={actionFlashId === c.id}
-                      onTakeAction={() => void takeAction(c.id)}
                       onFindSimilar={() =>
                         void openSimilar(c.id, c.title ?? null)
                       }
@@ -485,8 +450,6 @@ export default function ContractDetailPage() {
                     <ClauseCard
                       chunk={c}
                       index={i}
-                      isFlashing={actionFlashId === c.id}
-                      onTakeAction={() => void takeAction(c.id)}
                       onFindSimilar={() =>
                         void openSimilar(c.id, c.title ?? null)
                       }
@@ -509,11 +472,11 @@ export default function ContractDetailPage() {
           onClick={() => setModalOpen(false)}
         >
           <div
-            className="animate-scale-in max-h-[82vh] w-full max-w-2xl overflow-hidden rounded-2xl bg-white shadow-2xl"
+            className="animate-scale-in flex max-h-[82vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Modal header */}
-            <div className="flex items-center justify-between gap-3 border-b border-gray-100 px-6 py-4">
+            <div className="flex shrink-0 items-center justify-between gap-3 border-b border-gray-100 px-6 py-4">
               <div>
                 <h2 className="text-lg font-bold text-gray-900">
                   Similar clauses
@@ -534,8 +497,8 @@ export default function ContractDetailPage() {
               </button>
             </div>
 
-            {/* Modal body */}
-            <div className="overflow-y-auto p-6">
+            {/* Modal body — flex-1 + min-h-0 so this region scrolls inside max-h */}
+            <div className="min-h-0 flex-1 overflow-y-auto p-6">
               {compareLoading && (
                 <div className="flex flex-col items-center gap-3 py-12">
                   <div className="h-8 w-8 animate-spin rounded-full border-2 border-gray-200 border-t-emerald-500" />
@@ -587,14 +550,10 @@ export default function ContractDetailPage() {
 function ClauseCard({
   chunk: c,
   index,
-  isFlashing,
-  onTakeAction,
   onFindSimilar,
 }: {
   chunk: Chunk;
   index: number;
-  isFlashing: boolean;
-  onTakeAction: () => void;
   onFindSimilar: () => void;
 }) {
   const isRisk = c.category === "risk";
@@ -610,7 +569,7 @@ function ClauseCard({
     <div
       className={`animate-fade-in-up rounded-xl border border-gray-200 border-l-4 bg-white p-5 shadow-sm transition-all duration-200 ${borderColor} ${
         isCritical ? "animate-pulse-critical" : ""
-      } ${isFlashing ? "ring-2 ring-emerald-400 ring-offset-1" : ""}`}
+      }`}
       style={{ animationDelay: `${Math.min(index, 10) * 50}ms` }}
     >
       {/* Top row */}
@@ -680,27 +639,7 @@ function ClauseCard({
       {/* Deadline badge */}
       {c.action_deadline && <DeadlineBadge deadline={c.action_deadline} />}
 
-      {/* Action buttons */}
       <div className="mt-4 flex flex-wrap items-center gap-2">
-        <button
-          type="button"
-          onClick={onTakeAction}
-          className={`inline-flex h-9 items-center gap-1.5 rounded-lg px-4 text-sm font-semibold text-white transition ${
-            isRisk
-              ? "bg-red-600 hover:bg-red-700"
-              : "bg-emerald-600 hover:bg-emerald-700"
-          }`}
-        >
-          {isFlashing ? (
-            <>
-              <span>✓</span>
-              <span className="animate-confetti">Logged!</span>
-            </>
-          ) : (
-            "Take Action"
-          )}
-        </button>
-
         <button
           type="button"
           onClick={onFindSimilar}
@@ -791,9 +730,23 @@ function TimelineCard({ chunk: c }: { chunk: Chunk }) {
 
 // ─── SimilarClauseRow ─────────────────────────────────────────────────────────
 
+function similarClauseHeading(row: SimilarClause): string {
+  const cp = row.contracts?.counterparty_name?.trim();
+  if (cp) return cp;
+  const raw = row.contracts?.file_name?.trim();
+  if (raw) return raw.replace(/\.[^./\\]+$/, "");
+  const title = row.title?.trim();
+  if (title) return title;
+  const section = row.section_title?.trim();
+  if (section) return section;
+  if (row.clause_type && row.clause_type !== "general") {
+    return row.clause_type.replace(/_/g, " ");
+  }
+  return "Similar clause";
+}
+
 function SimilarClauseRow({ row }: { row: SimilarClause }) {
-  const counterparty =
-    row.contracts?.counterparty_name ?? row.contracts?.file_name ?? "Unknown";
+  const heading = similarClauseHeading(row);
   const similarity =
     row.similarity != null ? Math.round(row.similarity * 100) : null;
 
@@ -803,7 +756,7 @@ function SimilarClauseRow({ row }: { row: SimilarClause }) {
         <div className="min-w-0 flex-1">
           {/* Counterparty + section */}
           <div className="flex flex-wrap items-center gap-2">
-            <span className="font-semibold text-gray-900">{counterparty}</span>
+            <span className="font-semibold text-gray-900">{heading}</span>
             {row.section_number && (
               <span className="text-xs text-gray-500">
                 §{row.section_number}
