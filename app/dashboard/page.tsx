@@ -465,13 +465,6 @@ function ActionCard({
           )}
         </div>
       </div>
-      <button
-        type="button"
-        onClick={onAction}
-        className="shrink-0 rounded-xl bg-gray-900 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-gray-700"
-      >
-        Take Action
-      </button>
     </div>
   );
 }
@@ -523,13 +516,6 @@ function WeekCard({
           {row.analysis}
         </p>
       )}
-      <button
-        type="button"
-        onClick={onAction}
-        className="mt-3 w-full rounded-lg border border-gray-200 bg-gray-50 py-2 text-xs font-semibold text-gray-700 transition hover:bg-gray-100"
-      >
-        Take Action
-      </button>
     </div>
   );
 }
