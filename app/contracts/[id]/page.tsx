@@ -57,6 +57,55 @@ type SimilarClause = {
 
 type Tab = "analysis" | "ask" | "timeline";
 
+/** Synthetic row when contract.next_critical_date exists but no chunk has that deadline */
+const ROLLUP_TIMELINE_CHUNK_ID = "__rollup_next_critical__";
+
+function sameLocalCalendarDay(a: string, b: string): boolean {
+  const da = new Date(a);
+  const db = new Date(b);
+  if (Number.isNaN(da.getTime()) || Number.isNaN(db.getTime())) return false;
+  return (
+    da.getFullYear() === db.getFullYear() &&
+    da.getMonth() === db.getMonth() &&
+    da.getDate() === db.getDate()
+  );
+}
+
+function mergeTimelineWithRollup(
+  chunks: Chunk[] | null | undefined,
+  nextCriticalDate: string | null | undefined,
+): Chunk[] {
+  const fromChunks = deadlineChunks(chunks ?? []);
+  if (!nextCriticalDate?.trim()) return fromChunks;
+
+  const rollupMs = new Date(nextCriticalDate).getTime();
+  if (Number.isNaN(rollupMs)) return fromChunks;
+
+  const covered = fromChunks.some(
+    (c) =>
+      c.action_deadline &&
+      sameLocalCalendarDay(c.action_deadline, nextCriticalDate),
+  );
+  if (covered) return fromChunks;
+
+  const rollup: Chunk = {
+    id: ROLLUP_TIMELINE_CHUNK_ID,
+    title: "Next critical date",
+    section_title: "Contract rollup",
+    action_deadline: nextCriticalDate,
+    category: "neutral",
+    clause_type: "general",
+    analysis:
+      "Matches the next critical date on the portfolio list (earliest deadline captured when this contract was processed).",
+  };
+
+  return [...fromChunks, rollup].sort(
+    (a, b) =>
+      new Date(a.action_deadline!).getTime() -
+      new Date(b.action_deadline!).getTime(),
+  );
+}
+
 // ─── Severity ordering ────────────────────────────────────────────────────────
 
 const SEV_ORDER: Record<string, number> = {
@@ -157,7 +206,11 @@ export default function ContractDetailPage() {
   );
 
   const timelineChunks = useMemo(
-    () => deadlineChunks(contract?.contract_chunks ?? []),
+    () =>
+      mergeTimelineWithRollup(
+        contract?.contract_chunks ?? [],
+        contract?.next_critical_date,
+      ),
     [contract],
   );
 
@@ -425,14 +478,15 @@ export default function ContractDetailPage() {
       {tab === "timeline" && (
         <div className="animate-fade-in-up space-y-6">
           <p className="text-sm text-gray-500">
-            All clauses with action deadlines, sorted by urgency.
+            Clause deadlines and the contract next critical date (when set), by
+            date.
           </p>
 
           {timelineChunks.length === 0 ? (
             <EmptyState
               icon="📅"
               title="No deadlines found"
-              body="No clauses with action deadlines were identified in this contract."
+              body="No clause-level action deadlines or next critical date to show yet."
             />
           ) : (
             <>
@@ -450,6 +504,7 @@ export default function ContractDetailPage() {
                     <ClauseCard
                       chunk={c}
                       index={i}
+                      findSimilarDisabled={c.id === ROLLUP_TIMELINE_CHUNK_ID}
                       onFindSimilar={() =>
                         void openSimilar(c.id, c.title ?? null)
                       }
@@ -550,10 +605,12 @@ export default function ContractDetailPage() {
 function ClauseCard({
   chunk: c,
   index,
+  findSimilarDisabled = false,
   onFindSimilar,
 }: {
   chunk: Chunk;
   index: number;
+  findSimilarDisabled?: boolean;
   onFindSimilar: () => void;
 }) {
   const isRisk = c.category === "risk";
@@ -639,16 +696,18 @@ function ClauseCard({
       {/* Deadline badge */}
       {c.action_deadline && <DeadlineBadge deadline={c.action_deadline} />}
 
-      <div className="mt-4 flex flex-wrap items-center gap-2">
-        <button
-          type="button"
-          onClick={onFindSimilar}
-          className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-4 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
-        >
-          <SearchIcon className="h-3.5 w-3.5" />
-          Find similar
-        </button>
-      </div>
+      {!findSimilarDisabled && (
+        <div className="mt-4 flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={onFindSimilar}
+            className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-4 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
+          >
+            <SearchIcon className="h-3.5 w-3.5" />
+            Find similar
+          </button>
+        </div>
+      )}
     </div>
   );
 }
