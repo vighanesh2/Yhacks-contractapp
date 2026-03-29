@@ -1,4 +1,8 @@
 import { lavaOpenAI, OPENAI_V1_BASE } from "./lava-openai";
+import type { ChunkAnalysis } from "./analysis-types";
+import { normalizeChunkAnalysisFields } from "./analysis-types";
+
+export type { ChunkAnalysis };
 
 const OPENAI_CHAT_URL = `${OPENAI_V1_BASE}/chat/completions`;
 
@@ -26,32 +30,21 @@ If the section is just boilerplate with no financial implications (e.g. governin
 
 IMPORTANT: Calculate real dollar impacts wherever possible. If the section mentions specific amounts, percentages, or timeframes, do the math.`;
 
-export type ChunkAnalysis = {
-  clause_type: string;
-  category: string;
-  severity: string;
-  title: string;
-  analysis: string;
-  dollar_impact: number | null;
-  impact_explanation?: string | null;
-  trigger_date: string | null;
-  action_deadline: string | null;
-  is_recurring: boolean;
-  recommended_action: string;
-};
-
-const FALLBACK_ANALYSIS: ChunkAnalysis = {
-  clause_type: "general",
-  category: "neutral",
-  severity: "none",
-  title: "Unable to analyze",
-  analysis: "This section could not be automatically analyzed.",
-  dollar_impact: null,
-  trigger_date: null,
-  action_deadline: null,
-  is_recurring: false,
-  recommended_action: "Review manually.",
-};
+function fallbackAnalysis(analysis: string): ChunkAnalysis {
+  return normalizeChunkAnalysisFields({
+    clause_type: "general",
+    category: "neutral",
+    severity: "none",
+    title: "Unable to analyze",
+    analysis,
+    dollar_impact: null,
+    impact_explanation: null,
+    trigger_date: null,
+    action_deadline: null,
+    is_recurring: false,
+    recommended_action: "Review manually.",
+  });
+}
 
 type ChatCompletionResponse = {
   choices?: Array<{ message?: { content?: string | null } }>;
@@ -82,18 +75,13 @@ export async function analyzeChunk(
       },
     })) as ChatCompletionResponse;
   } catch (err) {
-    return {
-      ...FALLBACK_ANALYSIS,
-      analysis:
-        err instanceof Error ? err.message : "Lava gateway request failed.",
-    };
+    return fallbackAnalysis(
+      err instanceof Error ? err.message : "Lava gateway request failed.",
+    );
   }
 
   if (data.error?.message) {
-    return {
-      ...FALLBACK_ANALYSIS,
-      analysis: data.error.message,
-    };
+    return fallbackAnalysis(data.error.message);
   }
 
   const text = data.choices?.[0]?.message?.content ?? "{}";
@@ -103,8 +91,11 @@ export async function analyzeChunk(
     .trim();
 
   try {
-    return JSON.parse(cleaned) as ChunkAnalysis;
+    const raw = JSON.parse(cleaned) as Record<string, unknown>;
+    return normalizeChunkAnalysisFields(raw);
   } catch {
-    return FALLBACK_ANALYSIS;
+    return fallbackAnalysis(
+      "This section could not be automatically analyzed.",
+    );
   }
 }
