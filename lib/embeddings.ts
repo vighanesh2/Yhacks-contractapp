@@ -27,7 +27,7 @@ export async function embedBatch(texts: string[]): Promise<number[][]> {
   })) as EmbeddingsCreateResponse;
 
   const rows = [...data.data].sort(
-    (a, b) => (a.index ?? 0) - (b.index ?? 0),
+    (a, b) => (a.index ?? 0) - (b.index ?? 0)
   );
   return rows.map((d) => d.embedding);
 }
