@@ -12,9 +12,7 @@ const nextConfig: NextConfig = {
   // pdfjs loads a worker via dynamic import; bundling breaks path resolution (fake worker error).
   serverExternalPackages: [
     "pdf-parse",
-    "pdfjs-dist",
     "mammoth",
-    "@napi-rs/canvas",
   ],
 };
 
