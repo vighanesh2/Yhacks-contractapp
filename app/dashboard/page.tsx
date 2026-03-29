@@ -353,13 +353,6 @@ export default function DashboardPage() {
                     {c.analysis}
                   </p>
                 )}
-                <button
-                  type="button"
-                  onClick={() => void takeAction(c)}
-                  className="mt-3 text-sm font-semibold text-emerald-600 underline underline-offset-2 transition hover:text-emerald-700"
-                >
-                  Take Action →
-                </button>
               </div>
             ))}
           </div>
