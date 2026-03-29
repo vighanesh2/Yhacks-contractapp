@@ -14,7 +14,7 @@ import { redactPII } from "@/lib/redact";
 import { supabaseAdmin } from "@/lib/supabase";
 
 export const runtime = "nodejs";
-export const maxDuration = 60; // Allow up to 60s for Vercel
+export const maxDuration = 300; // Allow up to 300s for Vercel Pro
 
 // ─── Concurrency limiter ──────────────────────────────────────────────────────
 // Runs `fn` over all `items` with at most `concurrency` in-flight at once.
