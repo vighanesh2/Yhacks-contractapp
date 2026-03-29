@@ -73,14 +73,14 @@ export default function LandingPage() {
               style={{ animationDelay: "320ms" }}
             >
               <Link
-                href="/dashboard"
+                href="/login?from=%2Fdashboard"
                 className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-emerald-500 px-7 text-sm font-semibold text-white shadow-lg shadow-emerald-500/25 transition hover:bg-emerald-400 hover:shadow-emerald-400/30"
               >
                 Open Dashboard
                 <ArrowRightIcon className="h-4 w-4" />
               </Link>
               <Link
-                href="/upload"
+                href="/signup?from=%2Fupload"
                 className="inline-flex h-12 items-center justify-center rounded-xl border border-white/20 bg-white/10 px-7 text-sm font-semibold text-white backdrop-blur-sm transition hover:bg-white/15"
               >
                 Upload your first contract
@@ -252,14 +252,14 @@ export default function LandingPage() {
             </p>
             <div className="mt-8 flex flex-wrap justify-center gap-3 md:justify-start">
               <Link
-                href="/upload"
+                href="/signup?from=%2Fupload"
                 className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-gray-900 px-7 text-sm font-semibold text-white shadow-sm transition hover:bg-gray-800"
               >
                 Analyze a contract now
                 <ArrowRightIcon className="h-4 w-4" />
               </Link>
               <Link
-                href="/dashboard"
+                href="/login?from=%2Fdashboard"
                 className="inline-flex h-12 items-center justify-center rounded-xl border border-gray-200 bg-white px-7 text-sm font-semibold text-gray-900 transition hover:bg-gray-50"
               >
                 View Dashboard
