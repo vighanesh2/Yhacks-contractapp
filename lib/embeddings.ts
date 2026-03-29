@@ -20,7 +20,10 @@ export async function embedText(text: string): Promise<number[]> {
 }
 
 export async function embedBatch(texts: string[]): Promise<number[][]> {
-  // OpenAI supports batching up to 2048 inputs
+  if (texts.length === 0) {
+    return [];
+  }
+
   const data = (await lava.gateway(OPENAI_EMBEDDINGS_URL, {
     body: {
       model: "text-embedding-3-small",
@@ -29,7 +32,7 @@ export async function embedBatch(texts: string[]): Promise<number[][]> {
   })) as EmbeddingsCreateResponse;
 
   const rows = [...data.data].sort(
-    (a, b) => (a.index ?? 0) - (b.index ?? 0),
+    (a, b) => (a.index ?? 0) - (b.index ?? 0)
   );
   return rows.map((d) => d.embedding);
 }
