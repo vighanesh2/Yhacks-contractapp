@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { startTransition, useEffect, useState } from "react";
 
 const APP_LINKS = [
   { href: "/dashboard", label: "Dashboard" },
@@ -15,23 +15,33 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const [authed, setAuthed] = useState<boolean | null>(null);
 
-  const refreshAuth = useCallback(async () => {
-    try {
-      const res = await fetch("/api/auth/me");
-      const data = (await res.json()) as { authenticated?: boolean };
-      setAuthed(!!data.authenticated);
-    } catch {
-      setAuthed(false);
-    }
-  }, []);
-
   useEffect(() => {
-    void refreshAuth();
-  }, [pathname, refreshAuth]);
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/auth/me");
+        const data = (await res.json()) as { authenticated?: boolean };
+        if (!cancelled) {
+          startTransition(() => {
+            setAuthed(!!data.authenticated);
+          });
+        }
+      } catch {
+        if (!cancelled) {
+          startTransition(() => {
+            setAuthed(false);
+          });
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [pathname]);
 
   const onLogout = async () => {
     await fetch("/api/auth/logout", { method: "POST" });
-    setAuthed(false);
+    startTransition(() => setAuthed(false));
     router.push("/");
     router.refresh();
   };
