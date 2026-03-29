@@ -16,7 +16,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "ContractGuard",
+  title: "DealWithIt",
   description: "Contract intelligence: upload, analyze, and ask questions.",
 };
 
@@ -30,7 +30,10 @@ export default function RootLayout({
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full font-sans text-gray-900">
+      <body
+        className="min-h-full font-sans text-gray-900"
+        suppressHydrationWarning
+      >
         <AppShell>{children}</AppShell>
       </body>
     </html>

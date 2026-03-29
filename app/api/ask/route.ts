@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { askContract } from "@/lib/rag-pipeline";
+import { askWithGraphRAG } from "@/lib/graph-rag-pipeline";
 
 export const runtime = "nodejs";
 
@@ -20,6 +20,13 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const result = await askContract(question, body.contract_id);
-  return NextResponse.json(result);
+  const result = await askWithGraphRAG(question, body.contract_id);
+
+  return NextResponse.json({
+    answer: result.answer,
+    sources: result.sources,
+    thinking: result.thinking,
+    confidence: result.confidence,
+    router_decision: result.router_decision,
+  });
 }

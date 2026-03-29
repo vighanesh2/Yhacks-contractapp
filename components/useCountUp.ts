@@ -1,22 +1,34 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
-export function useCountUp(target: number, duration = 900) {
+/**
+ * Animates a displayed number toward `target` (easing). Used for stat cards.
+ */
+export function useCountUp(target: number, durationMs = 850): number {
   const [value, setValue] = useState(0);
+  const fromRef = useRef(0);
 
   useEffect(() => {
+    const from = fromRef.current;
     const start = performance.now();
-    let frame: number;
-    function tick(now: number) {
-      const t = Math.min(1, (now - start) / duration);
+
+    const tick = (now: number) => {
+      const elapsed = now - start;
+      const t = Math.min(1, elapsed / durationMs);
       const eased = 1 - (1 - t) ** 3;
-      setValue(Math.round(target * eased));
-      if (t < 1) frame = requestAnimationFrame(tick);
-    }
-    frame = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(frame);
-  }, [target, duration]);
+      const next = from + (target - from) * eased;
+      setValue(next);
+      if (t < 1) {
+        requestAnimationFrame(tick);
+      } else {
+        fromRef.current = target;
+      }
+    };
+
+    const id = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(id);
+  }, [target, durationMs]);
 
   return value;
 }

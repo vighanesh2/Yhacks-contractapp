@@ -1,0 +1,28 @@
+---
+description: Step-by-step, meticulous, in-depth work—never rush implementation
+alwaysApply: true
+---
+
+# Build with depth (always)
+
+When building or changing this codebase:
+
+## Pace and thoroughness
+
+- **Work step by step.** Finish one coherent slice (read context → decide → implement → verify) before jumping to the next. Avoid stacking many unrelated edits in one pass unless the task truly requires it.
+- **Do not rush.** Prefer correctness, clarity, and alignment with existing patterns over speed. If something is ambiguous, clarify or inspect the code before guessing.
+- **Go deep enough.** Understand surrounding code, data flow, and failure modes before editing. For non-trivial work: trace the path, name assumptions, then implement.
+
+## What “depth” means in practice
+
+- Read relevant files and conventions (including `AGENTS.md` / Next.js docs in this repo) before large changes.
+- Prefer small, reviewable steps; verify (types, lints, quick manual reasoning) after meaningful edits.
+- Avoid shallow fixes that paper over symptoms; fix or explicitly scope the root issue.
+
+## Anti-patterns
+
+- Skipping exploration and implementing from memory.
+- Bulk refactors or drive-by cleanups unrelated to the task.
+- “Ship first, understand later” when the problem needs design or investigation.
+
+This rule applies to all work on this project unless the user explicitly asks for a quick scratch or prototype.

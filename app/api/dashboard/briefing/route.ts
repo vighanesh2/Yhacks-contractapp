@@ -42,9 +42,7 @@ export async function GET() {
 
   const { data: chunks, error: chunksError } = await supabaseAdmin
     .from("contract_chunks")
-    .select(
-      "*, contracts!inner(id, counterparty_name, file_name, status)",
-    )
+    .select("*, contracts!inner(id, counterparty_name, file_name, status)")
     .eq("contracts.status", "active")
     .in("category", ["risk", "leverage"])
     .order("action_deadline", { ascending: true, nullsFirst: false });
@@ -75,26 +73,11 @@ export async function GET() {
 
   const now = new Date();
   const totalSaved =
-    actions?.reduce(
-      (s, a) => s + (Number(a.savings_amount) || 0),
-      0,
-    ) ?? 0;
+    actions?.reduce((s, a) => s + (Number(a.savings_amount) || 0), 0) ?? 0;
   const totalRisk =
-    contracts?.reduce(
-      (s, c) => s + (Number(c.money_at_risk) || 0),
-      0,
-    ) ?? 0;
+    contracts?.reduce((s, c) => s + (Number(c.money_at_risk) || 0), 0) ?? 0;
   const totalLeverage =
-    contracts?.reduce(
-      (s, c) => s + (Number(c.leverage_total) || 0),
-      0,
-    ) ?? 0;
-  const avgHealth = contracts?.length
-    ? Math.round(
-        contracts.reduce((s, c) => s + (Number(c.health_score) || 50), 0) /
-          contracts.length,
-      )
-    : 0;
+    contracts?.reduce((s, c) => s + (Number(c.leverage_total) || 0), 0) ?? 0;
 
   const rowList = (chunks ?? []) as ChunkRow[];
   const categorized: CategorizedChunk[] = rowList.map((c) => {
@@ -106,8 +89,7 @@ export async function GET() {
           )
         : null;
     const co = unwrapContract(c.contracts);
-    const contract_name =
-      co?.counterparty_name || co?.file_name || undefined;
+    const contract_name = co?.counterparty_name || co?.file_name || undefined;
     return { ...c, days_until_action: daysLeft, contract_name };
   });
 
@@ -115,15 +97,11 @@ export async function GET() {
     stats: {
       total_money_at_risk: totalRisk,
       total_leverage: totalLeverage,
-      portfolio_health: avgHealth,
       total_contracts: contracts?.length ?? 0,
       total_saved: totalSaved,
     },
     today_actions: categorized
-      .filter(
-        (c) =>
-          c.days_until_action !== null && c.days_until_action <= 1,
-      )
+      .filter((c) => c.days_until_action !== null && c.days_until_action <= 1)
       .slice(0, 3),
     this_week: categorized
       .filter(
@@ -134,8 +112,6 @@ export async function GET() {
       )
       .slice(0, 5),
     risks: categorized.filter((c) => c.category === "risk").slice(0, 8),
-    leverage: categorized
-      .filter((c) => c.category === "leverage")
-      .slice(0, 5),
+    leverage: categorized.filter((c) => c.category === "leverage").slice(0, 5),
   });
 }
