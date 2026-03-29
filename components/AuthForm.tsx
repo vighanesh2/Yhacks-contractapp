@@ -39,8 +39,8 @@ export function AuthForm({ mode }: { mode: Mode }) {
   const title = mode === "signup" ? "Create an account" : "Sign in";
   const subtitle =
     mode === "signup"
-      ? "Demo mode: use any email and password."
-      : "Demo mode: use any email and password.";
+      ? "Create your account to get started."
+      : "Sign in to continue to your workspace.";
   const submitLabel = mode === "signup" ? "Sign up" : "Sign in";
   const altHref = mode === "signup" ? "/login" : "/signup";
   const altLabel = mode === "signup" ? "Sign in" : "Sign up";
@@ -116,10 +116,6 @@ export function AuthForm({ mode }: { mode: Mode }) {
         >
           {altLabel}
         </Link>
-      </p>
-
-      <p className="text-center text-xs text-gray-400">
-        This is a demo: credentials are not stored or validated.
       </p>
     </div>
   );
