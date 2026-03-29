@@ -1,10 +1,6 @@
 import type { ChunkAnalysis } from "./analysis-types";
 import { normalizeChunkAnalysisFields } from "./analysis-types";
 import { lavaOpenAI, OPENAI_V1_BASE } from "./lava-openai";
-import type { ChunkAnalysis } from "./analysis-types";
-import { normalizeChunkAnalysisFields } from "./analysis-types";
-
-export type { ChunkAnalysis };
 
 export type { ChunkAnalysis };
 

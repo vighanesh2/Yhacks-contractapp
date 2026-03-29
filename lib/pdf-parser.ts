@@ -1,14 +1,19 @@
-import pdf from "pdf-parse";
 import mammoth from "mammoth";
+import { PDFParse } from "pdf-parse";
 
 export async function extractTextFromPDF(buffer: Buffer): Promise<string> {
-  const data = await pdf(buffer);
-  return data.text;
+  const parser = new PDFParse({ data: buffer });
+  try {
+    const result = await parser.getText();
+    return (result.text ?? "").trim();
+  } finally {
+    await parser.destroy();
+  }
 }
 
 export async function extractTextFromDOCX(buffer: Buffer): Promise<string> {
   const result = await mammoth.extractRawText({ buffer });
-  return result.value;
+  return (result.value ?? "").trim();
 }
 
 export function extractText(buffer: Buffer, fileName: string): Promise<string> {
