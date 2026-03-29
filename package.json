@@ -10,8 +10,9 @@
     "test:embeddings": "node --env-file=.env --import tsx scripts/test-embeddings.ts"
   },
   "dependencies": {
-    "mammoth": "^1.12.0",
     "@lavapayments/nodejs": "^11.2.0",
+    "@supabase/supabase-js": "^2.100.1",
+    "mammoth": "^1.12.0",
     "next": "16.2.1",
     "pdf-parse": "^2.4.5",
     "react": "19.2.4",
